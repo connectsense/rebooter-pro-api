@@ -94,9 +94,22 @@ zeroconf
 
 You will need to provide the following PEM-formatted certificates in the `gui/certs/` directory:
 
+**⚠️ Warning:** The sample server certificate and key included under certs/server-cert.pem and certs/server-key.pem are for demonstration only and should **not** be used in production or when building your distributable executables. You should generate your own certificates and keys before deploying or packaging.
+
+
 - `server-cert.pem`: The server certificate for the local HTTPS server
 - `server-key.pem`: The private key for the HTTPS server
 - `rebooter-device-cert.pem`: Trusted root certificate for verifying Rebooter devices
+
+> **⚠️ Important:** Do **not** regenerate or replace `rebooter-device-cert.pem`. This certificate must match the Rebooter device’s root certificate to verify its identity.
+
+### Generating Your Own Certificates
+
+```bash
+# Server certificate/key for the GUI HTTPS server
+openssl req -x509 -newkey rsa:2048   -keyout gui/certs/server‑key.pem   -out gui/certs/server‑cert.pem   -days 3650 -nodes   -subj "/CN=localhost"
+```
+
 
 ---
 

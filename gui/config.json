@@ -1,0 +1,7 @@
+{
+  "server_host": "0.0.0.0",
+  "server_port": 8443,
+  "server_cert_pem": "certs/server-cert.pem",
+  "server_key_pem": "certs/server-key.pem",
+  "rebooter_cert_pem": "certs/rebooter-device-cert.pem"
+}

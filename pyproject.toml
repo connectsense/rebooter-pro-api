@@ -1,0 +1,24 @@
+[project]
+name = "rebooter-pro-api"
+version = "0.1.0"
+description = "A reusable Python API and HTTPS gateway for Rebooter Pro mutual TLS provisioning."
+authors = [
+  { name = "Jonathan Witthoeft", email = "jonw@gridconnect.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = []
+
+[project.optional-dependencies]
+gui = [
+  "zeroconf",
+  "typing-extensions; python_version<'3.8'"
+]
+
+[project.scripts]
+rebooter-gui = "gui.app:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+

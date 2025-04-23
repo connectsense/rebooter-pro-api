@@ -32,11 +32,12 @@ class MyListener(ServiceListener):
     def __init__(self, listbox):
         self.listbox = listbox
 
-    def _remove_from_listbox(self, key):
+    def _remove_from_listbox(self, serial):
         items = self.listbox.get(0, END)
-        if key in items:
-            index = items.index(key)
-            self.listbox.delete(index)
+        for i, item in enumerate(items):
+            if item.startswith(serial):
+                self.listbox.delete(i)
+                break
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
@@ -45,30 +46,30 @@ class MyListener(ServiceListener):
             port = info.port
             serial = name.split("._")[0].strip()
             hostname = info.server.rstrip(".")
-            key = f"{serial} ({address}:{port}) [{hostname}]"
+            label = f"{serial} ({address}:{port}) [{hostname}]"
 
-            devices[key] = {
+            devices[serial] = {
                 "ip": address,
                 "port": port,
                 "serial": serial,
                 "hostname": hostname
             }
 
-            self._remove_from_listbox(key)
-            self.listbox.insert(END, key)
-            log_queue.put(f"Discovered {key}\n")
+            self._remove_from_listbox(serial)
+            self.listbox.insert(END, label)
+            log_queue.put(f"Discovered {label}\n")
 
     def remove_service(self, zeroconf, type, name):
         serial = name.split("._")[0].strip()
-        keys_to_remove = [key for key in devices if key.startswith(serial)]
-        for key in keys_to_remove:
-            self._remove_from_listbox(key)
-            devices.pop(key, None)
-            log_queue.put(f"Service removed: {key}\n")
+        if serial in devices:
+            self._remove_from_listbox(serial)
+            devices.pop(serial, None)
+            log_queue.put(f"Service removed: {serial}\n")
 
     def update_service(self, zeroconf, service_type, name):
         log_queue.put(f"Service updated: {name}\n")
         self.add_service(zeroconf, service_type, name)
+
 
 # === Subscribe Action ===
 def send_notification_subscription(api, host_or_ip, port, pc_cert_path, pc_key_path, pc_https_port):

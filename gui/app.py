@@ -32,12 +32,13 @@ class MyListener(ServiceListener):
     def __init__(self, listbox):
         self.listbox = listbox
 
-    def _remove_from_listbox(self, serial):
+    def _remove_all_matching_serial(self, serial):
         items = self.listbox.get(0, END)
-        for i, item in enumerate(items):
+        for item in items:
             if item.startswith(serial):
-                self.listbox.delete(i)
-                break
+                idx = self.listbox.get(0, END).index(item)
+                self.listbox.delete(idx)
+                devices.pop(item, None)
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
@@ -48,23 +49,24 @@ class MyListener(ServiceListener):
             hostname = info.server.rstrip(".")
             label = f"{serial} ({address}:{port}) [{hostname}]"
 
-            devices[serial] = {
+            # Remove old entries with the same serial number
+            self._remove_all_matching_serial(serial)
+
+            # Store by full label
+            devices[label] = {
                 "ip": address,
                 "port": port,
                 "serial": serial,
                 "hostname": hostname
             }
 
-            self._remove_from_listbox(serial)
             self.listbox.insert(END, label)
             log_queue.put(f"Discovered {label}\n")
 
     def remove_service(self, zeroconf, type, name):
         serial = name.split("._")[0].strip()
-        if serial in devices:
-            self._remove_from_listbox(serial)
-            devices.pop(serial, None)
-            log_queue.put(f"Service removed: {serial}\n")
+        self._remove_all_matching_serial(serial)
+        log_queue.put(f"Service removed: {serial}\n")
 
     def update_service(self, zeroconf, service_type, name):
         log_queue.put(f"Service updated: {name}\n")

@@ -38,6 +38,15 @@ class RebooterHttpClient:
             pc_key_path=pc_key_path
         )
 
+    def post_config(self, config_dict, pc_cert_path, pc_key_path):
+        return rebooter_http_client.post_config(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            config_dict=config_dict,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
 
 class SimpleHTTPSHandler(http.server.BaseHTTPRequestHandler):
     log_callback = None

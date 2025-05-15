@@ -132,4 +132,38 @@ def get_config(
     else:
         return resp.status, raw.decode()
 
+def post_config(
+    rebooter_host_or_ip,
+    rebooter_port,
+    config_dict,
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    import ssl
+    import http.client
+    import ipaddress
 
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=not is_ip
+    )
+
+    payload = json.dumps(config_dict)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("POST", "/config", body=payload, headers={"Content-Type": "application/json"})
+    
+    resp = conn.getresponse()
+    raw = resp.read()
+    if resp.status == 200:
+        return resp.status, json.loads(raw.decode())
+    else:
+        return resp.status, raw.decode()

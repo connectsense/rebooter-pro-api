@@ -116,7 +116,16 @@ def on_closing(root, zeroconf, api):
     root.destroy()
     sys.exit(0)
 
+
+def on_device_select(event):
+    if listbox.curselection():
+        config_button.config(state=NORMAL)
+    else:
+        config_button.config(state=DISABLED)
+
 # == Rebooter Config Window ===
+
+
 
 def set_config_image(image_name):
     global mainimage
@@ -267,37 +276,18 @@ def launch_rebooter_config_window(root_UI_in, listbox, api, server_cert_path, se
     url5Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage)
     url5Var.pack(padx=15)
     
+    rebooterWindow.grab_set()
+    
     refresh_config_fields(listbox, api, server_cert_path, server_key_path)
     
-    rebooterWindow.protocol("WM_DELETE_WINDOW", rebooterWindow.destroy)
-
-def openRebooterWindow():
-    global rebooterWindow, root_UI, update_job
-
-    if rebooterWindow.winfo_exists():
-      try:
-        root_UI.after_cancel(update_job)
-      except:
-        update_job=None
-      seconds_since_update=0
-      read_rebooter_config()
-      timingImage()
-      rebooterWindow.deiconify()
-      rebooterWindow.grab_set() # only allow usage of this window
-
-  
-def closeRebooterWindow():
-    global rebooterWindow, root_UI, update_job
-
-    if rebooterWindow.winfo_exists():
-      update_job = root_UI.after(1000,update_cb)#update
-      rebooterWindow.grab_release() # allow using other windows
-      rebooterWindow.withdraw()
+    rebooterWindow.protocol("WM_DELETE_WINDOW", lambda: (rebooterWindow.grab_release(), rebooterWindow.destroy()))
 
 
-
-
-
+#disable or enable the passed list of buttons based on if a rebooter in the list is selected
+def on_device_select(event, listbox, buttons):
+    new_state = NORMAL if listbox.curselection() else DISABLED
+    for btn in buttons:
+        btn.config(state=new_state)
 
 # === Main GUI ===
 def main():
@@ -308,6 +298,7 @@ def main():
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
 
     listbox = Listbox(device_frame, width=80, height=10)
+    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button]))
     listbox.pack(side=LEFT, fill=BOTH, expand=True)
 
     scrollbar = Scrollbar(device_frame, orient=VERTICAL, command=listbox.yview)
@@ -349,9 +340,10 @@ def main():
     )
     api.start_server()
 
-    Button(
+    subscribe_button = Button(
         root,
         text="Subscribe to Notifications",
+        state=DISABLED,
         command=lambda: on_subscribe(
             listbox,
             api,
@@ -359,11 +351,13 @@ def main():
             pc_key_path=server_key_path,
             pc_https_port=server_port
         )
-    ).pack(pady=5)
+    )
+    subscribe_button.pack(pady=5)
 
-    Button(
+    config_button = Button(
         root,
         text="Configure",
+        state=DISABLED,
         command=lambda: launch_rebooter_config_window(
             root_UI_in=root,
             listbox=listbox,
@@ -371,7 +365,8 @@ def main():
             server_cert_path=server_cert_path,
             server_key_path=server_key_path
         )
-    ).pack(pady=5)
+    )
+    config_button.pack(pady=5)
 
     zeroconf = Zeroconf()
     listener = MyListener(listbox)

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules after import.*")
 import sys
 import socket
 import tkinter.scrolledtext as st
@@ -8,6 +10,7 @@ from pathlib import Path
 from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from queue import Queue
 from rebooter_pro_api.rebooter_gateway import RebooterProAPI, load_config
+from PIL import ImageTk, Image
 
 # === CONFIG ===
 devices = {}
@@ -112,6 +115,128 @@ def on_closing(root, zeroconf, api):
     root.destroy()
     sys.exit(0)
 
+# == Rebooter Config Window ===
+
+def set_config_image(image_name):
+    global mainimage
+    try:
+        path = resource_path(f"images/{image_name}")
+        img = ImageTk.PhotoImage(Image.open(path))
+        mainimage.configure(image=img)
+        mainimage.image = img
+    except Exception as e:
+        print(f"⚠️ Failed to load image {image_name}: {e}")
+
+def timingImage(): return set_config_image("timing.png") or True
+def offImage(): return set_config_image("off.png") or True
+def odtImage(): return set_config_image("odt.png") or True
+def arddImage(): return set_config_image("ardd.png") or True
+
+
+def pingEnableView():
+    global enablePingVar, ping_frame
+    timingImage()
+    if (enablePingVar.get() == 1):
+      ping_frame.pack()
+    if (enablePingVar.get() == 0):
+      ping_frame.pack_forget()
+
+def send_rebooter_config():
+    print("Todo Send Rebooter Config")
+
+def launch_rebooter_config_window(root_UI_in):
+    global mainimage
+    global ping_frame
+    global enablePingVar, offDurVar, triggerTimeVar, detectionDelayVar, rebootAttemptsVal, logicVar, url1Var, url2Var, url3Var, url4Var, url5Var
+    
+    rebooterWindow = Toplevel(root_UI_in)
+    rebooterWindow.title("Rebooter Configuration")
+    rebooterWindow.geometry("700x750")
+    
+    Button(rebooterWindow, command=send_rebooter_config, text="Send Config", bg="#008fff").pack()
+    
+    top_frame = Frame(rebooterWindow)
+    top_frame.pack()
+    
+    mainimage = Label(top_frame)
+    mainimage.pack()
+    timingImage()
+    
+    enable_frame = Frame(rebooterWindow)
+    enable_frame.pack(pady=10)
+    
+    
+    enablePowerVar = IntVar()
+    Checkbutton(enable_frame, text='Enable Power Outage Reboot',variable=enablePowerVar, onvalue=1, offvalue=0).grid(row=0, column=0, sticky="n")
+    enablePingVar = IntVar()
+    Checkbutton(enable_frame, text='Enable Ping Outage Reboot',variable=enablePingVar, onvalue=1, offvalue=0, command=pingEnableView).grid(row=0, column=1, sticky="n")
+
+    #start common config
+    common_frame = Frame(rebooterWindow)
+    common_frame.pack()
+    Label(common_frame, text="Off Duration (sec)").grid(row=0, column=0, sticky="e")
+    offDurVar = Entry(common_frame, width=5, validate="focusin", validatecommand=offImage).grid(row=0, column=1, sticky="w")
+    
+    #start ping related config
+    ping_frame = Frame(rebooterWindow)
+    ping_frame.pack()
+    
+    Label(ping_frame, text="Outage Detection Trigger Time (min)").grid(row=0, column=0, sticky="e")
+    triggerTimeVar = Entry(ping_frame, width=5, validate="focusin", validatecommand=odtImage).grid(row=0, column=1, sticky="w")
+    
+    Label(ping_frame, text='After Reboot Detection Delay (min)').grid(row=1,column=0,sticky="e")
+    detectionDelayVar = Entry(ping_frame, width=5, validate="focusin", validatecommand=arddImage).grid(row=1,column=1,sticky="w")
+    
+    Label(ping_frame, text='Max Reboots Per Outage (0=Forever)').grid(row=2,column=0,sticky="e")
+    rebootAttemptsVal = Entry(ping_frame, width=5, validate="focusin", validatecommand=timingImage).grid(row=2,column=1,sticky="w")
+    
+    logic_label_frame = LabelFrame(ping_frame, text="Logic")
+    logic_label_frame.grid(row=3,column=0,sticky="w")
+    logicVar = IntVar()
+    Checkbutton(logic_label_frame, text='AND', variable=logicVar, onvalue=1, offvalue=0, command=timingImage).grid(row=0,column=0,sticky="w")
+    Label(logic_label_frame, text='ALL URLs failing can trigger a reboot').grid(row=1,column=0,sticky="e")
+    Checkbutton(logic_label_frame, text='OR', variable=logicVar, onvalue=0, offvalue=1, command=timingImage).grid(row=2,column=0,sticky="w", pady=(5,0))
+    Label(logic_label_frame, text='ANY URL failing can trigger a reboot').grid(row=3,column=0,sticky="e")
+
+    url_label_frame = LabelFrame(ping_frame, text="URLs or IPs to ping")
+    url_label_frame.grid(row=4,column=0,sticky="w")
+    url1Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage).pack(padx=15)
+    url2Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage).pack(padx=15)
+    url3Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage).pack(padx=15)
+    url4Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage).pack(padx=15)
+    url5Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage).pack(padx=15)
+    
+    
+    rebooterWindow.protocol("WM_DELETE_WINDOW", rebooterWindow.destroy)
+
+def openRebooterWindow():
+    global rebooterWindow, root_UI, update_job
+
+    if rebooterWindow.winfo_exists():
+      try:
+        root_UI.after_cancel(update_job)
+      except:
+        update_job=None
+      seconds_since_update=0
+      read_rebooter_config()
+      timingImage()
+      rebooterWindow.deiconify()
+      rebooterWindow.grab_set() # only allow usage of this window
+
+  
+def closeRebooterWindow():
+    global rebooterWindow, root_UI, update_job
+
+    if rebooterWindow.winfo_exists():
+      update_job = root_UI.after(1000,update_cb)#update
+      rebooterWindow.grab_release() # allow using other windows
+      rebooterWindow.withdraw()
+
+
+
+
+
+
 # === Main GUI ===
 def main():
     root = Tk()
@@ -172,6 +297,12 @@ def main():
             pc_key_path=server_key_path,
             pc_https_port=server_port
         )
+    ).pack(pady=5)
+
+    Button(
+        root,
+        text="Configure",
+        command=lambda: launch_rebooter_config_window(root)
     ).pack(pady=5)
 
     zeroconf = Zeroconf()

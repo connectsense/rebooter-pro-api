@@ -47,6 +47,24 @@ class RebooterHttpClient:
             pc_cert_path=pc_cert_path,
             pc_key_path=pc_key_path
         )
+        
+    def get_info(self, pc_cert_path, pc_key_path):
+        return rebooter_http_client.get_info(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+        
+    def post_info(self, pc_cert_path, pc_key_path):
+        return rebooter_http_client.post_info(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
 
 class SimpleHTTPSHandler(http.server.BaseHTTPRequestHandler):
     log_callback = None

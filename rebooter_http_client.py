@@ -167,3 +167,50 @@ def post_config(
         return resp.status, json.loads(raw.decode())
     else:
         return resp.status, raw.decode()
+        
+def get_info(
+    rebooter_host_or_ip,
+    rebooter_port,
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=True
+    )
+
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("GET", "/info")
+    resp = conn.getresponse()
+    raw = resp.read()
+    if resp.status == 200:
+        return resp.status, json.loads(raw.decode())
+    else:
+        return resp.status, raw.decode()
+
+def post_info(
+    rebooter_host_or_ip,
+    rebooter_port,
+    pc_cert_path,
+    pc_key_path,
+    rebooter_cert_path=None
+):
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=True
+    )
+
+    payload = json.dumps({"do_update": True})
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("POST", "/info", body=payload, headers={"Content-Type": "application/json"})
+    resp = conn.getresponse()
+    raw = resp.read()
+    if resp.status == 200:
+        return resp.status, json.loads(raw.decode())
+    else:
+        return resp.status, raw.decode()

@@ -158,9 +158,6 @@ def refresh_config_fields(listbox, api, pc_cert_path, pc_key_path):
         messagebox.showerror("Error", f"Device returned {status}:\n{result}")
         return
 
-    from rebooter_pro_api.rebooter_config import parse_config
-    
-    
     cfg = parse_config(result)
     log_queue.put("✅ Config received:\n")
     log_queue.put(json.dumps(cfg, indent=2) + "\n")
@@ -352,6 +349,59 @@ def launch_rebooter_config_window(root_UI_in, listbox, api, server_cert_path, se
     rebooterWindow.protocol("WM_DELETE_WINDOW", lambda: (rebooterWindow.grab_release(), rebooterWindow.destroy()))
 
 
+# === Info Window ===
+def open_info_window(listbox, api, pc_cert_path, pc_key_path):
+    if not listbox.curselection():
+        messagebox.showwarning("No selection", "Please select a Rebooter device first.")
+        return
+
+    selected = listbox.get(listbox.curselection()[0])
+    device = devices[selected]
+    host_or_ip = device.get("hostname") or device["ip"]
+
+    try:
+        client = api.create_client(host_or_ip, remote_port=device["port"])
+        status, info = client.get_info(pc_cert_path, pc_key_path)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to retrieve info:\n{e}")
+        return
+
+    if status != 200:
+        messagebox.showerror("Error", f"HTTP {status}: {info}")
+        return
+
+    # === Build Info Window ===
+    win = Toplevel()
+    win.title("Rebooter Info")
+    win.geometry("400x250")
+    win.grab_set()
+
+    Label(win, text=f"Device: {info.get('device', '?')}").pack(pady=5)
+    Label(win, text=f"Firmware Version: {info.get('firmware_version', '?')}").pack(pady=5)
+    Label(win, text=f"MAC: {info.get('MAC', '?')}").pack(pady=5)
+    Label(win, text=f"OTA Update: {'Available ✅' if info.get('update_available') else 'None'}").pack(pady=5)
+
+    def on_update():
+        try:
+            status, resp = client.post_info(pc_cert_path, pc_key_path)
+            if status == 200 and resp.get("do_update"):
+                messagebox.showinfo("OTA Update", "Update started successfully.")
+            else:
+                messagebox.showerror("OTA Update", f"Failed to start update.\nResponse: {resp}")
+        except Exception as e:
+            messagebox.showerror("OTA Update Error", str(e))
+        win.destroy()
+
+    if info.get("update_available"):
+        Button(win, text="Update Firmware", command=on_update, bg="#ff9800").pack(pady=(10, 0))
+
+    Button(win, text="Close", command=win.destroy).pack(pady=10)
+
+
+
+
+
+
 #disable or enable the passed list of buttons based on if a rebooter in the list is selected
 def on_device_select(event, listbox, buttons):
     new_state = NORMAL if listbox.curselection() else DISABLED
@@ -367,7 +417,7 @@ def main():
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
 
     listbox = Listbox(device_frame, width=80, height=10)
-    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button]))
+    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button]))
     listbox.configure(exportselection=False)
     listbox.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -424,8 +474,26 @@ def main():
     )
     subscribe_button.pack(pady=5)
 
+    action_frame = Frame(root)
+    action_frame.pack(pady=5)
+
+
+    info_button = Button(
+        action_frame,
+        text="Device Info",
+        state=DISABLED,
+        command=lambda: open_info_window(
+            listbox=listbox,
+            api=api,
+            pc_cert_path=server_cert_path,
+            pc_key_path=server_key_path
+        )
+    )
+    info_button.pack(side=LEFT, padx=5)
+
+
     config_button = Button(
-        root,
+        action_frame,
         text="Configure",
         state=DISABLED,
         command=lambda: launch_rebooter_config_window(
@@ -436,7 +504,7 @@ def main():
             server_key_path=server_key_path
         )
     )
-    config_button.pack(pady=5)
+    config_button.pack(side=LEFT, padx=5)
 
     zeroconf = Zeroconf()
     listener = MyListener(listbox)

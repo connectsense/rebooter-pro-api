@@ -10,6 +10,7 @@ from pathlib import Path
 from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from queue import Queue
 from rebooter_pro_api.rebooter_gateway import RebooterProAPI, load_config
+from rebooter_pro_api.rebooter_config import parse_config
 from PIL import ImageTk, Image
 
 # === CONFIG ===
@@ -132,6 +133,57 @@ def offImage(): return set_config_image("off.png") or True
 def odtImage(): return set_config_image("odt.png") or True
 def arddImage(): return set_config_image("ardd.png") or True
 
+def refresh_config_fields(listbox, api, pc_cert_path, pc_key_path):
+    global enablePowerVar, enablePingVar, offDurVar, triggerTimeVar, detectionDelayVar, rebootAttemptsVal, logicVar
+    global url1Var, url2Var, url3Var, url4Var, url5Var, ping_frame
+
+    selection = listbox.curselection()
+    if not selection:
+        messagebox.showwarning("No selection", "Please select a Rebooter device first.")
+        return
+
+    selected = listbox.get(selection[0])
+    device = devices[selected]
+    host_or_ip = device.get("hostname") or device["ip"]
+
+    try:
+        client = api.create_client(host_or_ip, remote_port=device["port"])
+        status, result = client.get_config(pc_cert_path=pc_cert_path, pc_key_path=pc_key_path)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to fetch config:\n{e}")
+        return
+
+    if status != 200:
+        messagebox.showerror("Error", f"Device returned {status}:\n{result}")
+        return
+
+    from rebooter_pro_api.rebooter_config import parse_config
+    cfg = parse_config(result)
+
+    enablePowerVar.set(1 if cfg["enable_power_fail_reboot"] else 0)
+    enablePingVar.set(1 if cfg["enable_ping_fail_reboot"] else 0)
+    ping_frame.pack() if cfg["enable_ping_fail_reboot"] else ping_frame.pack_forget()
+
+    offDurVar.delete(0, END)
+    offDurVar.insert(0, str(cfg["off_duration"]))
+
+    triggerTimeVar.delete(0, END)
+    triggerTimeVar.insert(0, str(cfg["ping_config"]["outage_trigger_time"]))
+
+    detectionDelayVar.delete(0, END)
+    detectionDelayVar.insert(0, str(cfg["ping_config"]["detection_delay"]))
+
+    rebootAttemptsVal.delete(0, END)
+    rebootAttemptsVal.insert(0, str(cfg["max_auto_reboots"]))
+
+    logicVar.set(0 if cfg["ping_config"]["any_fail_logic"] else 1)
+
+    urls = cfg["ping_config"]["target_addrs"]
+    url_vars = [url1Var, url2Var, url3Var, url4Var, url5Var]
+    for i, entry in enumerate(url_vars):
+        entry.delete(0, END)
+        if i < len(urls):
+            entry.insert(0, urls[i])
 
 def pingEnableView():
     global enablePingVar, ping_frame
@@ -144,7 +196,7 @@ def pingEnableView():
 def send_rebooter_config():
     print("Todo Send Rebooter Config")
 
-def launch_rebooter_config_window(root_UI_in):
+def launch_rebooter_config_window(root_UI_in, listbox, api, server_cert_path, server_key_path):
     global mainimage
     global ping_frame
     global enablePowerVar, enablePingVar, offDurVar, triggerTimeVar, detectionDelayVar, rebootAttemptsVal, logicVar, url1Var, url2Var, url3Var, url4Var, url5Var
@@ -214,7 +266,9 @@ def launch_rebooter_config_window(root_UI_in):
     url4Var.pack(padx=15)
     url5Var = Entry(url_label_frame, width=25, validate="focusin", validatecommand=timingImage)
     url5Var.pack(padx=15)
-
+    
+    refresh_config_fields(listbox, api, server_cert_path, server_key_path)
+    
     rebooterWindow.protocol("WM_DELETE_WINDOW", rebooterWindow.destroy)
 
 def openRebooterWindow():
@@ -310,7 +364,13 @@ def main():
     Button(
         root,
         text="Configure",
-        command=lambda: launch_rebooter_config_window(root)
+        command=lambda: launch_rebooter_config_window(
+            root_UI_in=root,
+            listbox=listbox,
+            api=api,
+            server_cert_path=server_cert_path,
+            server_key_path=server_key_path
+        )
     ).pack(pady=5)
 
     zeroconf = Zeroconf()

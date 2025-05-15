@@ -19,6 +19,7 @@ rebooter_pro_api/
 ├── __init__.py
 ├── rebooter_gateway.py
 ├── rebooter_http_client.py
+├── rebooter_config.py
 ├── gui/
 │   ├── __init__.py
 │   ├── app.py

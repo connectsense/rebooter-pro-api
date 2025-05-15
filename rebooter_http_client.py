@@ -95,3 +95,41 @@ def post_notify(
     resp = conn.getresponse()
     return resp.status, resp.read().decode()
 
+def get_config(
+    rebooter_host_or_ip,
+    rebooter_port,
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    """
+    Retrieves the current configuration from the Rebooter Pro device.
+    """
+    import ssl
+    import http.client
+    import ipaddress
+
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=not is_ip
+    )
+
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("GET", "/config")
+
+    resp = conn.getresponse()
+    raw = resp.read()
+    if resp.status == 200:
+        return resp.status, json.loads(raw.decode())
+    else:
+        return resp.status, raw.decode()
+
+

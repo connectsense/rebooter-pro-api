@@ -370,6 +370,8 @@ def open_info_window(listbox, api, pc_cert_path, pc_key_path):
         messagebox.showerror("Error", f"HTTP {status}: {info}")
         return
 
+    log_queue.put("✅ Info received:\n")
+    log_queue.put(json.dumps(info, indent=2) + "\n")
     # === Build Info Window ===
     win = Toplevel()
     win.title("Rebooter Info")

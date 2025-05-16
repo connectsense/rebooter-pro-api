@@ -18,6 +18,7 @@ import json
 devices = {}
 log_queue = Queue()
 MAX_LOG_LINES = 1000
+zeroconf = None
 
 def resource_path(relative_path: str) -> Path:
     try:
@@ -116,7 +117,6 @@ def on_closing(root, zeroconf, api):
     api.stop_server()
     root.destroy()
     sys.exit(0)
-
 
 # == Rebooter Config Window ===
 def set_config_image(image_name):
@@ -459,9 +459,10 @@ def open_control_window(listbox, api, pc_cert_path, pc_key_path):
             cmd = {"outlet_reboot": True}
             status, resp = client.post_control(cmd, pc_cert_path, pc_key_path)
             if status == 200 and resp.get("outlet_reboot"):
-                messagebox.showinfo("Reboot", "Reboot command sent successfully.")
                 log_queue.put(f"Outlet State Sent:\n{json.dumps(cmd, indent=2)}\n")
                 log_queue.put(f"Outlet State Received:\n{json.dumps(resp, indent=2)}\n")
+                outlet_rebooting_action(listbox)
+                win.destroy()
             else:
                 messagebox.showerror("Reboot Failed", f"HTTP {status}: {resp}")
         except Exception as e:
@@ -473,16 +474,94 @@ def open_control_window(listbox, api, pc_cert_path, pc_key_path):
 
 
 
+# === Main GUI ===
 #disable or enable the passed list of buttons based on if a rebooter in the list is selected
 def on_device_select(event, listbox, buttons):
     new_state = NORMAL if listbox.curselection() else DISABLED
     for btn in buttons:
         btn.config(state=new_state)
 
-# === Main GUI ===
+#remove the rebooter from the list if a reboot is happening (we need to stop scanning, remove it, and restart scnning
+def delete_device_and_rescan(device_name, listbox):
+    matching_index = None
+    matching_label = None
+
+    for i in range(listbox.size()):
+        label = listbox.get(i)
+        if label.startswith(device_name):
+            matching_index = i
+            matching_label = label
+            break
+
+    if matching_index is None:
+        messagebox.showinfo("Not Found", f"No device named {device_name} found in the list.")
+        return
+    
+    global zeroconf
+    try:
+        zeroconf.close()
+    except:
+        pass
+    
+    listbox.delete(matching_index)
+    devices.pop(matching_label, None)
+    listbox.selection_clear(0, END)
+    listbox.event_generate("<<ListboxSelect>>")
+    
+    zeroconf = Zeroconf()
+    listener = MyListener(listbox)
+    ServiceBrowser(zeroconf, "_https._tcp.local.", listener)
+    log_queue.put(f"Removed {device_name} from list (due to reboot) and restarted DNS scans\n")
+
+def outlet_rebooting_action(listbox):
+    selection = listbox.curselection()
+    if not selection:
+        messagebox.showinfo("No selection", "No device is selected.")
+        return
+
+    index = selection[0]
+    label = listbox.get(index)
+
+    # Remove from listbox and devices dict and rescan after 7 seconds (give rebooter pro time to fully go offline before clear)
+    print(label[:20])
+    listbox.after(7000, lambda: delete_device_and_rescan(label[:20], listbox))
+
+    # Show message window
+    info_win = Toplevel()
+    info_win.title("Device Rebooting")
+    info_win.geometry("400x160")
+    info_win.grab_set()
+    
+    # Frame for message content
+    msg_frame = Frame(info_win)
+    msg_frame.pack(expand=True, fill=BOTH, padx=10, pady=10)
+    
+    Label(
+        msg_frame,
+        text="Rebooter device is rebooting.\n\nIt will reappear once it's back online.",
+        wraplength=360,
+        justify="center"
+    ).pack()
+    
+    def close_all_aux_windows():
+        for window in info_win.winfo_toplevel().winfo_children():
+            if isinstance(window, Toplevel):
+                window.destroy()
+        info_win.destroy()  # Also destroy this window
+
+    # Frame for OK button pinned to the bottom
+    btn_frame = Frame(info_win)
+    btn_frame.pack(pady=(0, 10))
+    Button(btn_frame, text="OK", width=12, bg="#008fff", fg="white", command=close_all_aux_windows).pack()
+    
+
+
+
 def main():
+    global zeroconf
+
     root = Tk()
-    root.title("Rebooter Notifier")
+    root.title("Rebooter Pro Network Tool")
 
     device_frame = Frame(root)
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
@@ -521,13 +600,28 @@ def main():
     server_port = config["server_port"]
     rebooter_cert_path = str(resource_path(config["rebooter_cert_pem"])) if "rebooter_cert_pem" in config else None
 
+    # Https Notification Handler ===
+    def handle_notification(data):
+        log_queue.put(f"Notification Received:\n{json.dumps(data, indent=2)}\n")
+    
+        if data.get("code") == 3:
+            full_name = data.get("device")
+            if full_name:
+                match = re.search(r"(\d{7})$", full_name)
+                if match:
+                    serial_number = match.group(1)
+                    device_name = f"Rebooter Pro {serial_number}"
+                    listbox.after(15000, lambda: delete_device_and_rescan(device_name, listbox))
+                else:
+                    log_queue.put(f"Could not extract serial from device name: {full_name}\n")
+
     api = RebooterProAPI(
         cert_path=server_cert_path,
         key_path=server_key_path,
         port=server_port,
         host=server_host,
         verify_cert_path=rebooter_cert_path,
-        log_callback=log_queue.put
+        notification_callback=handle_notification
     )
     api.start_server()
 

@@ -105,9 +105,6 @@ def get_config(
     """
     Retrieves the current configuration from the Rebooter Pro device.
     """
-    import ssl
-    import http.client
-    import ipaddress
 
     try:
         ipaddress.ip_address(rebooter_host_or_ip)
@@ -140,10 +137,6 @@ def post_config(
     pc_cert_path=None,
     pc_key_path=None
 ):
-    import ssl
-    import http.client
-    import ipaddress
-
     try:
         ipaddress.ip_address(rebooter_host_or_ip)
         is_ip = True
@@ -175,11 +168,17 @@ def get_info(
     pc_cert_path=None,
     pc_key_path=None
 ):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
     context = create_ssl_context(
         rebooter_cert_path=rebooter_cert_path,
         pc_cert_path=pc_cert_path,
         pc_key_path=pc_key_path,
-        verify=True
+        verify=not is_ip
     )
 
     conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
@@ -198,11 +197,17 @@ def post_info(
     pc_key_path,
     rebooter_cert_path=None
 ):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
     context = create_ssl_context(
         rebooter_cert_path=rebooter_cert_path,
         pc_cert_path=pc_cert_path,
         pc_key_path=pc_key_path,
-        verify=True
+        verify=not is_ip
     )
 
     payload = json.dumps({"do_update": True})
@@ -222,11 +227,17 @@ def get_control(
     pc_cert_path=None,
     pc_key_path=None
 ):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
     context = create_ssl_context(
         rebooter_cert_path=rebooter_cert_path,
         pc_cert_path=pc_cert_path,
         pc_key_path=pc_key_path,
-        verify=True
+        verify=not is_ip
     )
 
     conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
@@ -247,11 +258,17 @@ def post_control(
     pc_cert_path=None,
     pc_key_path=None
 ):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
     context = create_ssl_context(
         rebooter_cert_path=rebooter_cert_path,
         pc_cert_path=pc_cert_path,
         pc_key_path=pc_key_path,
-        verify=True
+        verify=not is_ip
     )
 
     payload = json.dumps(command_dict)

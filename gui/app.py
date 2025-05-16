@@ -396,6 +396,79 @@ def open_info_window(listbox, api, pc_cert_path, pc_key_path):
     Button(win, text="Close", command=win.destroy).pack(pady=10)
 
 
+# === Control Window ===
+def open_control_window(listbox, api, pc_cert_path, pc_key_path):
+    if not listbox.curselection():
+        messagebox.showwarning("No selection", "Please select a Rebooter device first.")
+        return
+
+    selected = listbox.get(listbox.curselection()[0])
+    device = devices[selected]
+    host_or_ip = device.get("hostname") or device["ip"]
+
+    try:
+        client = api.create_client(host_or_ip, remote_port=device["port"])
+        status, state = client.get_control(pc_cert_path, pc_key_path)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to get outlet state:\n{e}")
+        return
+
+    if status != 200:
+        messagebox.showerror("Error", f"HTTP {status}: {state}")
+        return
+        
+    log_queue.put(f"Outlet State Received:\n{json.dumps(state, indent=2)}\n")
+
+    win = Toplevel()
+    win.title("Outlet Control")
+    win.geometry("300x200")
+    win.grab_set()
+
+    outlet_on = state.get("outlet_active", False)
+    outlet_state = BooleanVar(value=outlet_on)
+
+    status_label = Label(win, text=f"Outlet is currently: {'Powered' if outlet_on else 'Not Powered'}")
+    status_label.pack(pady=10)
+
+    toggle_button = Button(win)
+
+    def toggle_outlet():
+        new_state = not outlet_state.get()
+        try:
+            cmd = {"outlet_active": new_state}
+            status, resp = client.post_control(cmd, pc_cert_path, pc_key_path)
+            if status == 200:
+                outlet_state.set(new_state)
+                status_label.config(text=f"Outlet is currently: {'Powered' if new_state else 'Not Powered'}")
+                toggle_button.config(text=f"Turn Outlet {'OFF' if new_state else 'ON'}")
+                log_queue.put(f"Outlet State Sent:\n{json.dumps(cmd, indent=2)}\n")
+                log_queue.put(f"Outlet State Received:\n{json.dumps(resp, indent=2)}\n")
+            else:
+                messagebox.showerror("Outlet Error", f"HTTP {status}: {resp}")
+        except Exception as e:
+            messagebox.showerror("Outlet Error", str(e))
+
+    toggle_button.config(
+        text=f"Turn Outlet {'OFF' if outlet_on else 'ON'}",
+        command=toggle_outlet
+    )
+    toggle_button.pack(pady=5)
+
+    def reboot_outlet():
+        try:
+            cmd = {"outlet_reboot": True}
+            status, resp = client.post_control(cmd, pc_cert_path, pc_key_path)
+            if status == 200 and resp.get("outlet_reboot"):
+                messagebox.showinfo("Reboot", "Reboot command sent successfully.")
+                log_queue.put(f"Outlet State Sent:\n{json.dumps(cmd, indent=2)}\n")
+                log_queue.put(f"Outlet State Received:\n{json.dumps(resp, indent=2)}\n")
+            else:
+                messagebox.showerror("Reboot Failed", f"HTTP {status}: {resp}")
+        except Exception as e:
+            messagebox.showerror("Reboot Error", str(e))
+
+    Button(win, text="Reboot Device", bg="#ff4444", command=reboot_outlet).pack(pady=10)
+    Button(win, text="Close", command=win.destroy).pack(pady=5)
 
 
 
@@ -415,7 +488,7 @@ def main():
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
 
     listbox = Listbox(device_frame, width=80, height=10)
-    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button]))
+    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button, control_button]))
     listbox.configure(exportselection=False)
     listbox.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -489,6 +562,18 @@ def main():
     )
     info_button.pack(side=LEFT, padx=5)
 
+    control_button = Button(
+        action_frame,
+        text="Outlet Control",
+        state=DISABLED,
+        command=lambda: open_control_window(
+            listbox=listbox,
+            api=api,
+            pc_cert_path=server_cert_path,
+            pc_key_path=server_key_path
+        )
+    )
+    control_button.pack(side=LEFT, padx=5)
 
     config_button = Button(
         action_frame,

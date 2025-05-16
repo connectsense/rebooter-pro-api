@@ -65,13 +65,32 @@ class RebooterHttpClient:
             pc_cert_path=pc_cert_path,
             pc_key_path=pc_key_path
         )
+        
+    def get_control(self, pc_cert_path, pc_key_path):
+        return rebooter_http_client.get_control(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+
+    def post_control(self, command_dict, pc_cert_path, pc_key_path):
+        return rebooter_http_client.post_control(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            command_dict=command_dict,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+
 
 class SimpleHTTPSHandler(http.server.BaseHTTPRequestHandler):
     log_callback = None
 
     def do_POST(self):
         raw_cert = self.connection.getpeercert(binary_form=True)
-        print("✅ Received client cert" if raw_cert else "❌ No client cert received")
 
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length)
@@ -113,8 +132,8 @@ class RebooterHttpServer:
                 context.load_verify_locations(cafile=self.verify_cert_path)
             except Exception as e:
                 if self.log_callback:
-                    self.log_callback(f"❌ Failed to load verify_cert_path: {e}\n")
-                    self.log_callback("⚠️ Falling back to CERT_NONE (no client verification).\n")
+                    self.log_callback(f"Failed to load verify_cert_path: {e}\n")
+                    self.log_callback("Falling back to CERT_NONE (no client verification).\n")
                 context.verify_mode = ssl.CERT_NONE
 
         SimpleHTTPSHandler.log_callback = self.log_callback
@@ -124,7 +143,7 @@ class RebooterHttpServer:
             self.httpd.socket = context.wrap_socket(self.httpd.socket, server_side=True)
         except ssl.SSLError as e:
             if self.log_callback:
-                self.log_callback(f"❌ SSL handshake failed: {e}\n")
+                self.log_callback(f"SSL handshake failed: {e}\n")
             return
 
         def serve():

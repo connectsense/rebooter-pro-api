@@ -23,8 +23,8 @@ def create_ssl_context(rebooter_cert_path=None, pc_cert_path=None, pc_key_path=N
             try:
                 context.load_cert_chain(certfile=pc_cert_path, keyfile=pc_key_path)
             except Exception as e:
-                print(f"⚠️ Failed to load PC cert/key ({pc_cert_path}, {pc_key_path}): {e}")
-                print("⚠️ Continuing without client certificate.")
+                print(f"Failed to load PC cert/key ({pc_cert_path}, {pc_key_path}): {e}")
+                print("Continuing without client certificate.")
         return context
 
     # Create default context with verification enabled
@@ -33,16 +33,16 @@ def create_ssl_context(rebooter_cert_path=None, pc_cert_path=None, pc_key_path=N
     try:
         context.load_verify_locations(cafile=rebooter_cert_path)
     except Exception as e:
-        print(f"⚠️ Could not load rebooter_cert_path ({rebooter_cert_path}): {e}")
-        print("⚠️ Falling back to unverified SSL context.")
+        print(f"Could not load rebooter_cert_path ({rebooter_cert_path}): {e}")
+        print("Falling back to unverified SSL context.")
         return ssl._create_unverified_context()
 
     if pc_cert_path and pc_key_path:
         try:
             context.load_cert_chain(certfile=pc_cert_path, keyfile=pc_key_path)
         except Exception as e:
-            print(f"⚠️ Failed to load PC cert/key ({pc_cert_path}, {pc_key_path}): {e}")
-            print("⚠️ Continuing without client certificate.")
+            print(f"Failed to load PC cert/key ({pc_cert_path}, {pc_key_path}): {e}")
+            print("Continuing without client certificate.")
 
     return context
 

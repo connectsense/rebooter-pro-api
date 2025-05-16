@@ -92,13 +92,13 @@ def send_notification_subscription(api, host_or_ip, port, pc_cert_path, pc_key_p
         )
 
         if status == 200:
-            log_queue.put(f"✅ Subscribed to notifications from {host_or_ip}\n")
+            log_queue.put(f"Subscribed to notifications from {host_or_ip}\n")
             messagebox.showinfo("Success", f"Subscribed to notifications from {host_or_ip}")
         else:
-            log_queue.put(f"⚠️ Subscription failed ({status}): {result}\n")
+            log_queue.put(f"Subscription failed ({status}): {result}\n")
             messagebox.showerror("Error", f"HTTP {status}: {result}")
     except Exception as e:
-        log_queue.put(f"❌ Error sending notification: {e}\n")
+        log_queue.put(f"Error sending notification: {e}\n")
         messagebox.showerror("Error", f"Failed to send notification:\n{e}")
 
 def on_subscribe(listbox, api, pc_cert_path, pc_key_path, pc_https_port):
@@ -127,7 +127,7 @@ def set_config_image(image_name):
         mainimage.configure(image=img)
         mainimage.image = img
     except Exception as e:
-        print(f"⚠️ Failed to load image {image_name}: {e}")
+        print(f"Failed to load image {image_name}: {e}")
 
 def timingImage(): return set_config_image("timing.png") or True
 def offImage(): return set_config_image("off.png") or True
@@ -159,8 +159,7 @@ def refresh_config_fields(listbox, api, pc_cert_path, pc_key_path):
         return
 
     cfg = parse_config(result)
-    log_queue.put("✅ Config received:\n")
-    log_queue.put(json.dumps(cfg, indent=2) + "\n")
+    log_queue.put(f"Config Received:\n{json.dumps(cfg, indent=2)}\n")
 
     enablePowerVar.set(1 if cfg["enable_power_fail_reboot"] else 0)
     enablePingVar.set(1 if cfg["enable_ping_fail_reboot"] else 0)
@@ -224,12 +223,10 @@ def send_rebooter_config(listbox, api, pc_cert_path, pc_key_path):
         status, response = client.post_config(config_payload, pc_cert_path=pc_cert_path, pc_key_path=pc_key_path)
         if status == 200:
             messagebox.showinfo("Success", "Configuration sent successfully.")
-            log_queue.put("✅ Config sent:\n")
-            log_queue.put(json.dumps(config_payload, indent=2) + "\n")
+            log_queue.put(f"Config Sent:\n{json.dumps(config_payload, indent=2)}\n")
             
             cfg = parse_config(response)
-            log_queue.put("✅ Config received:\n")
-            log_queue.put(json.dumps(cfg, indent=2) + "\n")
+            log_queue.put(f"Config Received:\n{json.dumps(cfg, indent=2)}\n")
             
             enablePowerVar.set(1 if cfg["enable_power_fail_reboot"] else 0)
             enablePingVar.set(1 if cfg["enable_ping_fail_reboot"] else 0)
@@ -257,10 +254,10 @@ def send_rebooter_config(listbox, api, pc_cert_path, pc_key_path):
                     entry.insert(0, urls[i])
         else:
             messagebox.showerror("Error", f"HTTP {status}: {response}")
-            log_queue.put(f"❌ Failed to send config ({status}): {response}\n")
+            log_queue.put(f"Failed to send config ({status}): {response}\n")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to send configuration:\n{e}")
-        log_queue.put(f"❌ Exception in post_config: {e}\n")
+        log_queue.put(f"Exception in post_config: {e}\n")
 
 def pingEnableView():
     global enablePingVar, ping_frame
@@ -370,8 +367,7 @@ def open_info_window(listbox, api, pc_cert_path, pc_key_path):
         messagebox.showerror("Error", f"HTTP {status}: {info}")
         return
 
-    log_queue.put("✅ Info received:\n")
-    log_queue.put(json.dumps(info, indent=2) + "\n")
+    log_queue.put(f"Info Received:\n{json.dumps(info, indent=2)}\n")
     # === Build Info Window ===
     win = Toplevel()
     win.title("Rebooter Info")
@@ -381,7 +377,7 @@ def open_info_window(listbox, api, pc_cert_path, pc_key_path):
     Label(win, text=f"Device: {info.get('device', '?')}").pack(pady=5)
     Label(win, text=f"Firmware Version: {info.get('firmware_version', '?')}").pack(pady=5)
     Label(win, text=f"MAC: {info.get('MAC', '?')}").pack(pady=5)
-    Label(win, text=f"OTA Update: {'Available ✅' if info.get('update_available') else 'None'}").pack(pady=5)
+    Label(win, text=f"OTA Update: {'Available' if info.get('update_available') else 'None'}").pack(pady=5)
 
     def on_update():
         try:

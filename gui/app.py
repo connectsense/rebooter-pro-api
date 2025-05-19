@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+__version__ = "1.0.0" # script version
+
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules after import.*")
 import sys
@@ -777,6 +780,19 @@ def main():
 
     root = Tk()
     root.title("Rebooter Pro Network Tool")
+
+    menubar = Menu(root)
+    root.config(menu=menubar)
+
+    help_menu = Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="Help", menu=help_menu)
+
+    def show_about():
+        global __version__
+        messagebox.showinfo("About Rebooter Pro GUI", f"Rebooter Pro GUI\nVersion {__version__}\n© 2025 Grid Connect")
+
+
+    help_menu.add_command(label="About", command=show_about)
 
     device_frame = Frame(root)
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)

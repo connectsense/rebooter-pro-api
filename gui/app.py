@@ -602,13 +602,13 @@ def open_cron_editor_popup(string_var):
     day_options = list(day_map.values())
 
     Label(popup, text="Minute:").grid(row=0, column=0, padx=10, pady=(10, 2), sticky="e")
-    ttk.Combobox(popup, textvariable=minute, values=[str(i) for i in range(60)], state="readonly", width=10).grid(row=0, column=1, pady=(10, 2), sticky="w")
+    ttk.Combobox(popup, textvariable=minute, values=[str(i) for i in range(60)], state="readonly", width=13).grid(row=0, column=1, pady=(10, 2), sticky="w")
 
     Label(popup, text="Hour:").grid(row=1, column=0, padx=10, pady=2, sticky="e")
-    ttk.Combobox(popup, textvariable=hour, values=[str(i) for i in range(24)], state="readonly", width=10).grid(row=1, column=1, pady=2, sticky="w")
+    ttk.Combobox(popup, textvariable=hour, values=[str(i) for i in range(24)], state="readonly", width=13).grid(row=1, column=1, pady=2, sticky="w")
 
     Label(popup, text="Day of Week:").grid(row=2, column=0, padx=10, pady=2, sticky="e")
-    ttk.Combobox(popup, textvariable=day, values=day_options, state="readonly", width=17).grid(row=2, column=1, pady=2, sticky="w")
+    ttk.Combobox(popup, textvariable=day, values=day_options, state="readonly", width=13).grid(row=2, column=1, pady=2, sticky="w")
 
     def save_and_close():
         day_code = [k for k, v in day_map.items() if v == day.get()][0]

@@ -85,6 +85,27 @@ class RebooterHttpClient:
             pc_key_path=pc_key_path
         )
 
+    def get_schedules(self, pc_cert_path, pc_key_path):
+        return rebooter_http_client.get_schedules(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+
+    def post_schedules(self, timezone, schedules, pc_cert_path, pc_key_path):
+        return rebooter_http_client.post_schedules(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            timezone=timezone,
+            schedules=schedules,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+
+
 
 class SimpleNotifyHTTPSHandler(http.server.BaseHTTPRequestHandler):
     notification_callback = None  # NEW

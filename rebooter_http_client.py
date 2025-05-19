@@ -281,3 +281,72 @@ def post_control(
     else:
         return resp.status, raw.decode()
 
+def get_schedules(
+    rebooter_host_or_ip,
+    rebooter_port,
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=not is_ip
+    )
+
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("GET", "/schedules")
+    response = conn.getresponse()
+    raw = response.read()
+
+    if response.status == 200:
+        return response.status, json.loads(raw.decode())
+    else:
+        return response.status, raw.decode()
+
+
+def post_schedules(
+    rebooter_host_or_ip,
+    rebooter_port,
+    timezone,
+    schedules,
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=not is_ip
+    )
+
+    body = json.dumps({
+        "timezone": timezone,
+        "schedules": schedules
+    })
+    
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn.request("POST", "/schedules", body=body, headers={"Content-Type": "application/json"})
+    response = conn.getresponse()
+    raw = response.read()
+    
+    if response.status == 200:
+        return response.status, json.loads(raw.decode())
+    else:
+        return response.status, raw.decode()
+
+

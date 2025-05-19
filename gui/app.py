@@ -6,6 +6,7 @@ import socket
 import tkinter.scrolledtext as st
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 from pathlib import Path
 from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from queue import Queue
@@ -471,6 +472,220 @@ def open_control_window(listbox, api, pc_cert_path, pc_key_path):
     Button(win, text="Reboot Device", bg="#ff4444", command=reboot_outlet).pack(pady=10)
     Button(win, text="Close", command=win.destroy).pack(pady=5)
 
+# === Schedules Window ===
+def load_joda_timezones(filepath):
+    try:
+        with open(filepath, "r") as f:
+            return [line.strip() for line in f if line.strip()]
+    except Exception as e:
+        log_queue.put(f"Failed to load timezones from {filepath}: {e}\n")
+        return []
+
+def refresh_schedule_fields(listbox, api, pc_cert_path, pc_key_path, timezone_var, schedule_entries, frame):
+    selection = listbox.curselection()
+    if not selection:
+        messagebox.showwarning("No Selection", "Please select a Rebooter device first.")
+        return
+
+    device = devices[listbox.get(selection[0])]
+    host = device.get("hostname") or device["ip"]
+    client = api.create_client(host, remote_port=device["port"])
+
+    try:
+        status, data = client.get_schedules(pc_cert_path, pc_key_path)
+        log_queue.put(f"Schedules Received:\n{json.dumps(data, indent=2)}\n")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to fetch schedules:\n{e}")
+        return
+
+    if status != 200:
+        messagebox.showerror("Error", f"GET /schedules failed ({status}):\n{data}")
+        return
+
+    timezone_var.set(data.get("timezone", "UTC"))
+    schedules = data.get("schedules", [])
+
+    for i in range(10):
+        cron_str = schedules[i] if i < len(schedules) else ""
+        sv = StringVar(value=cron_str)
+        schedule_entries.append(sv)
+        entry = Entry(frame, textvariable=sv, width=40)
+        entry.grid(row=i, column=1, padx=5, pady=2)
+        Button(frame, text="Edit", command=lambda sv=sv: open_cron_editor_popup(sv)).grid(row=i, column=2, padx=5)
+        readable = cron_to_readable(cron_str)
+        label = Label(frame, text=readable)
+        label.grid(row=i, column=0, sticky="w")
+        
+        # Update label when entry changes
+        def make_updater(lbl, var):
+            return lambda *_: lbl.config(text=cron_to_readable(var.get()))
+        sv.trace_add("write", make_updater(label, sv))
+
+
+def cron_to_readable(cron_expr):
+    try:
+        parts = cron_expr.strip().split()
+        if len(parts) != 5:
+            return "Invalid cron format"
+
+        minute, hour, _, _, dow = parts
+
+        # Accept wildcard (*) or integer values
+        if minute != "*" and not minute.isdigit():
+            return "Invalid cron format"
+        if hour != "*" and not hour.isdigit():
+            return "Invalid cron format"
+
+        dow_names = {
+            "*": "Every day",
+            "0": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday",
+            "4": "Thursday", "5": "Friday", "6": "Saturday"
+        }
+
+        dow_label = dow_names.get(dow, f"Day {dow}")
+
+        if hour == "*":
+            time_label = f"every hour at minute {minute}"
+            if minute == "*":
+                time_label = f"every minute"
+        elif minute == "*":
+            time_label = f"every minute past hour {hour}"
+        else:
+            time_label = f"{int(hour)}:{int(minute):02d}"
+
+        return f"{dow_label} at {time_label}"
+    except Exception:
+        return "Invalid cron format"
+
+
+def open_cron_editor_popup(string_var):
+    popup = Toplevel()
+    popup.title("Edit Schedule")
+    popup.geometry("250x180")
+    popup.grab_set()
+
+    # Dropdown variables
+    minute = StringVar()
+    hour = StringVar()
+    day = StringVar()
+
+    # Cron value parsing
+    cron_value = string_var.get().strip()
+    parts = cron_value.split()
+
+    # Fallback values
+    minute.set("0")
+    hour.set("0")
+    day.set("Every Day (*)")
+
+    # Reverse map for day
+    day_map = {
+        "*": "Every Day (*)",
+        "0": "Sunday (0)",
+        "1": "Monday (1)",
+        "2": "Tuesday (2)",
+        "3": "Wednesday (3)",
+        "4": "Thursday (4)",
+        "5": "Friday (5)",
+        "6": "Saturday (6)"
+    }
+
+    if len(parts) == 5:
+        if parts[0].isdigit():
+            minute.set(parts[0])
+        if parts[1].isdigit():
+            hour.set(parts[1])
+        if parts[4] in day_map:
+            day.set(day_map[parts[4]])
+
+    # Dropdown values
+    day_options = list(day_map.values())
+
+    Label(popup, text="Minute:").grid(row=0, column=0, padx=10, pady=(10, 2), sticky="e")
+    ttk.Combobox(popup, textvariable=minute, values=[str(i) for i in range(60)], state="readonly", width=10).grid(row=0, column=1, pady=(10, 2), sticky="w")
+
+    Label(popup, text="Hour:").grid(row=1, column=0, padx=10, pady=2, sticky="e")
+    ttk.Combobox(popup, textvariable=hour, values=[str(i) for i in range(24)], state="readonly", width=10).grid(row=1, column=1, pady=2, sticky="w")
+
+    Label(popup, text="Day of Week:").grid(row=2, column=0, padx=10, pady=2, sticky="e")
+    ttk.Combobox(popup, textvariable=day, values=day_options, state="readonly", width=17).grid(row=2, column=1, pady=2, sticky="w")
+
+    def save_and_close():
+        day_code = [k for k, v in day_map.items() if v == day.get()][0]
+        cron = f"{minute.get()} {hour.get()} * * {day_code}"
+        string_var.set(cron)
+        popup.destroy()
+
+    Button(popup, text="Save", command=save_and_close).grid(row=3, column=0, columnspan=2, pady=10)
+
+def open_schedule_window(listbox, api, pc_cert_path, pc_key_path):
+    import tkinter as tk
+    from tkinter import Toplevel, StringVar, Entry, Label, Button, messagebox
+    from tkinter import ttk
+    import json
+
+    joda_timezones = load_joda_timezones(resource_path("joda_timezones.txt"))
+
+    # Open popup window
+    win = Toplevel()
+    win.title("Reboot Schedule Manager")
+    win.geometry("600x500")
+    win.grab_set()
+
+    Label(win, text="Timezone:").pack(pady=(10, 0))
+
+    timezone_var = StringVar()
+    timezone_dropdown = ttk.Combobox(win, textvariable=timezone_var, values=joda_timezones, state="readonly")
+    timezone_dropdown.pack(fill="x", padx=5, pady=5)
+
+    schedule_entries = []
+
+    frame = tk.Frame(win)
+    frame.pack(pady=10)
+
+    def save_schedules():
+        cron_list = [sv.get().strip() for sv in schedule_entries if sv.get().strip()]
+        if len(cron_list) > 10:
+            messagebox.showerror("Error", "No more than 10 schedules allowed.")
+            return
+        for cron in cron_list:
+            if len(cron.encode("utf-8")) > 64:
+                messagebox.showerror("Error", f"Schedule too long: {cron}")
+                return
+
+        selection = listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a Rebooter device.")
+            return
+
+        device = devices[listbox.get(selection[0])]
+        host = device.get("hostname") or device["ip"]
+        client = api.create_client(host, remote_port=device["port"])
+
+        try:
+            status, resp = client.post_schedules(timezone_var.get(), cron_list, pc_cert_path, pc_key_path)
+            if status == 200:
+                messagebox.showinfo("Success", "Schedules updated.")
+                log_queue.put(f"Schedules Sent:\n{json.dumps(resp, indent=2)}\n")
+                win.destroy()
+            else:
+                messagebox.showerror("Error", f"POST /schedules failed ({status})")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    Button(win, text="Save", command=save_schedules, bg="#00c853", fg="white").pack(pady=10)
+    Button(win, text="Cancel", command=win.destroy).pack()
+
+    refresh_schedule_fields(
+        listbox=listbox,
+        api=api,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        timezone_var=timezone_var,
+        schedule_entries=schedule_entries,
+        frame=frame
+    )
+
 
 
 
@@ -567,7 +782,7 @@ def main():
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
 
     listbox = Listbox(device_frame, width=80, height=10)
-    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button, control_button]))
+    listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button, control_button, schedule_button]))
     listbox.configure(exportselection=False)
     listbox.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -625,26 +840,11 @@ def main():
     )
     api.start_server()
 
-    subscribe_button = Button(
-        root,
-        text="Subscribe to Notifications",
-        state=DISABLED,
-        command=lambda: on_subscribe(
-            listbox,
-            api,
-            pc_cert_path=server_cert_path,
-            pc_key_path=server_key_path,
-            pc_https_port=server_port
-        )
-    )
-    subscribe_button.pack(pady=5)
-
-    action_frame = Frame(root)
-    action_frame.pack(pady=5)
-
+    top_button_frame = Frame(root)
+    top_button_frame.pack(pady=5)
 
     info_button = Button(
-        action_frame,
+        top_button_frame,
         text="Device Info",
         state=DISABLED,
         command=lambda: open_info_window(
@@ -655,6 +855,23 @@ def main():
         )
     )
     info_button.pack(side=LEFT, padx=5)
+
+    subscribe_button = Button(
+        top_button_frame,
+        text="Subscribe to Notifications",
+        state=DISABLED,
+        command=lambda: on_subscribe(
+            listbox,
+            api,
+            pc_cert_path=server_cert_path,
+            pc_key_path=server_key_path,
+            pc_https_port=server_port
+        )
+    )
+    subscribe_button.pack(side=LEFT, padx=5)
+
+    action_frame = Frame(root)
+    action_frame.pack(pady=5)
 
     control_button = Button(
         action_frame,
@@ -671,7 +888,7 @@ def main():
 
     config_button = Button(
         action_frame,
-        text="Configure",
+        text="Device Configuration",
         state=DISABLED,
         command=lambda: launch_rebooter_config_window(
             root_UI_in=root,
@@ -682,6 +899,20 @@ def main():
         )
     )
     config_button.pack(side=LEFT, padx=5)
+
+    schedule_button = Button(
+        action_frame,
+        text="Manage Schedules",
+        state=DISABLED,
+        command=lambda: open_schedule_window(
+            listbox=listbox,
+            api=api,
+            pc_cert_path=server_cert_path,
+            pc_key_path=server_key_path
+        )
+    )
+    schedule_button.pack(side=LEFT, padx=5)
+
 
     zeroconf = Zeroconf()
     listener = MyListener(listbox)

@@ -131,12 +131,13 @@ To build a `.exe`, run the following from a Windows environment:
 ```cmd
 python -m PyInstaller --onefile --noconsole ^
   --hidden-import=ipaddress ^
+  --hidden-import=PIL._tkinter_finder ^
   --add-data "rebooter_pro_api/gui/config.json;." ^
   --add-data "rebooter_pro_api/gui/certs/server-cert.pem;certs" ^
   --add-data "rebooter_pro_api/gui/certs/server-key.pem;certs" ^
   --add-data "rebooter_pro_api/gui/certs/rebooter-device-cert.pem;certs" ^
   --add-data "rebooter_pro_api/gui/images;images" ^
-  --add-data "rebooter_pro_api/gui/joda_timezones.txt;gui" ^
+  --add-data "rebooter_pro_api/gui/joda_timezones.txt;."^
   rebooter_pro_api/gui/app.py
 ```
 
@@ -147,7 +148,7 @@ This creates a `dist/app.exe` executable.
 Run this from a Linux/macOS terminal to build a native ELF/macOS executable:
 
 ```bash
-pyinstaller --onefile --noconsole   --hidden-import=ipaddress   --add-data "rebooter_pro_api/gui/config.json:."   --add-data "rebooter_pro_api/gui/certs/server-cert.pem:certs"   --add-data "rebooter_pro_api/gui/certs/server-key.pem:certs"   --add-data "rebooter_pro_api/gui/certs/rebooter-device-cert.pem:certs"   --add-data "rebooter_pro_api/gui/images:images"   --add-data "rebooter_pro_api/gui/joda_timezones.txt:gui"   rebooter_pro_api/gui/app.py
+pyinstaller --onefile --noconsole   --hidden-import=ipaddress     --hidden-import=PIL._tkinter_finder   --add-data "rebooter_pro_api/gui/config.json:."   --add-data "rebooter_pro_api/gui/certs/server-cert.pem:certs"   --add-data "rebooter_pro_api/gui/certs/server-key.pem:certs"   --add-data "rebooter_pro_api/gui/certs/rebooter-device-cert.pem:certs"   --add-data "rebooter_pro_api/gui/images:images"   --add-data "rebooter_pro_api/gui/joda_timezones.txt:."   rebooter_pro_api/gui/app.py
 ```
 
 This creates a `dist/app` executable.

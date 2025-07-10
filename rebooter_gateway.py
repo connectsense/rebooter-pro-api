@@ -4,12 +4,12 @@ import threading
 import http.server
 import ssl
 from . import rebooter_http_client
+from . import rebooter_discovery
 
 
 def load_config(path="config.json"):
     with open(path, "r") as f:
         return json.load(f)
-
 
 class RebooterHttpClient:
     def __init__(self, rebooter_host_or_ip, rebooter_port, rebooter_cert_path=None):
@@ -190,14 +190,23 @@ class RebooterHttpServer:
 
 
 class RebooterProAPI:
-    def __init__(self, cert_path, key_path, port=8443, host='0.0.0.0', verify_cert_path=None, notification_callback=None):
+    def __init__(self, cert_path, key_path, port=8443, host='0.0.0.0', verify_cert_path=None, notification_callback=None, discovery_callback=None):
         self.cert_path = cert_path
         self.key_path = key_path
         self.port = port
         self.host = host
         self.verify_cert_path = verify_cert_path
         self.notification_callback = notification_callback
+        self.discovery = rebooter_discovery.DiscoveryManager(discovery_callback)
         self.server = None
+
+    def start_discovery(self):
+        if self.discovery:
+            self.discovery.start()
+
+    def stop_discovery(self):
+        if self.discovery:
+            self.discovery.stop()
 
     def start_server(self):
         self.server = RebooterHttpServer(

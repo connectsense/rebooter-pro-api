@@ -18,6 +18,7 @@ A reusable Python library and GUI tool for interacting with Rebooter Pro devices
 rebooter_pro_api/
 ├── __init__.py
 ├── rebooter_gateway.py
+├── rebooter_discovery.py
 ├── rebooter_http_client.py
 ├── rebooter_config.py
 ├── gui/

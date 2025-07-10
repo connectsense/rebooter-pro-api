@@ -11,7 +11,6 @@ from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
 from pathlib import Path
-from zeroconf import ServiceBrowser, Zeroconf, ServiceListener
 from queue import Queue
 from rebooter_pro_api.rebooter_gateway import RebooterProAPI, load_config
 from rebooter_pro_api.rebooter_config import parse_config
@@ -22,7 +21,6 @@ import json
 devices = {}
 log_queue = Queue()
 MAX_LOG_LINES = 1000
-zeroconf = None
 
 def resource_path(relative_path: str) -> Path:
     try:
@@ -36,51 +34,6 @@ def get_local_ip_for_target(target_ip_or_host):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect((target_ip_or_host, 80))
         return s.getsockname()[0]
-
-# === Zeroconf Service Discovery ===
-class MyListener(ServiceListener):
-    def __init__(self, listbox):
-        self.listbox = listbox
-
-    def _remove_all_matching_serial(self, serial):
-        items = self.listbox.get(0, END)
-        for item in items:
-            if item.startswith(serial):
-                idx = self.listbox.get(0, END).index(item)
-                self.listbox.delete(idx)
-                devices.pop(item, None)
-
-    def add_service(self, zeroconf, type, name):
-        info = zeroconf.get_service_info(type, name)
-        if info and name.startswith("Rebooter Pro "):
-            address = socket.inet_ntoa(info.addresses[0])
-            port = info.port
-            serial = name.split("._")[0].strip()
-            hostname = info.server.rstrip(".")
-            label = f"{serial} ({address}:{port}) [{hostname}]"
-
-            # Remove old entries with the same serial number
-            self._remove_all_matching_serial(serial)
-
-            # Store by full label
-            devices[label] = {
-                "ip": address,
-                "port": port,
-                "serial": serial,
-                "hostname": hostname
-            }
-
-            self.listbox.insert(END, label)
-            log_queue.put(f"Discovered {label}\n")
-
-    def remove_service(self, zeroconf, type, name):
-        serial = name.split("._")[0].strip()
-        self._remove_all_matching_serial(serial)
-        log_queue.put(f"Service removed: {serial}\n")
-
-    def update_service(self, zeroconf, service_type, name):
-        log_queue.put(f"Service updated: {name}\n")
-        self.add_service(zeroconf, service_type, name)
 
 
 # === Subscribe Action ===
@@ -116,9 +69,9 @@ def on_subscribe(listbox, api, pc_cert_path, pc_key_path, pc_https_port):
     host_or_ip = device.get("hostname") or device["ip"]
     send_notification_subscription(api, host_or_ip, device["port"], pc_cert_path, pc_key_path, pc_https_port)
 
-def on_closing(root, zeroconf, api):
-    zeroconf.close()
+def on_closing(root, api):
     api.stop_server()
+    api.stop_discovery()
     root.destroy()
     sys.exit(0)
 
@@ -701,6 +654,7 @@ def on_device_select(event, listbox, buttons):
 
 #remove the rebooter from the list if a reboot is happening (we need to stop scanning, remove it, and restart scnning
 def delete_device_and_rescan(device_name, listbox):
+    global api
     matching_index = None
     matching_label = None
 
@@ -714,21 +668,18 @@ def delete_device_and_rescan(device_name, listbox):
     if matching_index is None:
         messagebox.showinfo("Not Found", f"No device named {device_name} found in the list.")
         return
-    
-    global zeroconf
-    try:
-        zeroconf.close()
-    except:
-        pass
+    if api:
+        api.stop_discovery()
+
     
     listbox.delete(matching_index)
     devices.pop(matching_label, None)
     listbox.selection_clear(0, END)
     listbox.event_generate("<<ListboxSelect>>")
     
-    zeroconf = Zeroconf()
-    listener = MyListener(listbox)
-    ServiceBrowser(zeroconf, "_https._tcp.local.", listener)
+    if api:
+        api.start_discovery()
+        
     log_queue.put(f"Removed {device_name} from list (due to reboot) and restarted DNS scans\n")
 
 def outlet_rebooting_action(listbox):
@@ -776,7 +727,7 @@ def outlet_rebooting_action(listbox):
 
 
 def main():
-    global zeroconf
+    global api
 
     root = Tk()
     root.title("Rebooter Pro Network Tool")
@@ -834,7 +785,8 @@ def main():
     # Https Notification Handler ===
     def handle_notification(data):
         log_queue.put(f"Notification Received:\n{json.dumps(data, indent=2)}\n")
-    
+        
+        #if it is a reboot notification, delete the device as it will be offline for a bit
         if data.get("code") == 3:
             full_name = data.get("device")
             if full_name:
@@ -846,13 +798,49 @@ def main():
                 else:
                     log_queue.put(f"Could not extract serial from device name: {full_name}\n")
 
+    # Rebooter Discovery Callback ===
+    def on_device_update(device_info):
+        serial = device_info.get("serial")
+        if not serial:
+            return
+
+        # Remove all matching serials from listbox and device map
+        items = listbox.get(0, END)
+        for item in items:
+            if item.startswith(serial):
+                idx = listbox.get(0, END).index(item)
+                listbox.delete(idx)
+                devices.pop(item, None)
+
+            if device_info.get("removed"):
+                log_queue.put(f"Service removed: {serial}\n")
+                return
+
+        # Format new label
+        ip = device_info["ip"]
+        port = device_info["port"]
+        hostname = device_info["hostname"]
+        label = f"{serial} ({ip}:{port}) [{hostname}]"
+
+        # Save new entry
+        devices[label] = {
+            "ip": ip,
+            "port": port,
+            "serial": serial,
+            "hostname": hostname
+        }
+
+        listbox.insert(END, label)
+        log_queue.put(f"Discovered {label}\n")
+
     api = RebooterProAPI(
         cert_path=server_cert_path,
         key_path=server_key_path,
         port=server_port,
         host=server_host,
         verify_cert_path=rebooter_cert_path,
-        notification_callback=handle_notification
+        notification_callback=handle_notification,
+        discovery_callback=on_device_update
     )
     api.start_server()
 
@@ -929,12 +917,9 @@ def main():
     )
     schedule_button.pack(side=LEFT, padx=5)
 
-
-    zeroconf = Zeroconf()
-    listener = MyListener(listbox)
-    ServiceBrowser(zeroconf, "_https._tcp.local.", listener)
-
-    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root, zeroconf, api))
+    api.start_discovery()
+    
+    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root, api))
     update_console()
     root.mainloop()
 

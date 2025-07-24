@@ -812,8 +812,19 @@ def main():
     root = Tk()
     root.title("Rebooter Pro Network Tool")
 
+    show_notifications_var = BooleanVar(value=False)
+    
     menubar = Menu(root)
     root.config(menu=menubar)
+
+    view_menu = Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="View", menu=view_menu)
+    
+    view_menu.add_checkbutton(
+        label="Enable Notifications",
+        variable=show_notifications_var,
+        command=lambda: subscribe_button.pack_forget() if not show_notifications_var.get() else subscribe_button.pack(side=LEFT, padx=5)
+    )
 
     help_menu = Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Help", menu=help_menu)
@@ -964,7 +975,8 @@ def main():
             pc_https_port=server_port
         )
     )
-    subscribe_button.pack(side=LEFT, padx=5)
+    if show_notifications_var.get():
+        subscribe_button.pack(side=LEFT, padx=5)
 
     action_frame = Frame(root)
     action_frame.pack(pady=5)

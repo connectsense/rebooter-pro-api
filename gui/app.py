@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "1.0.0" # script version
+__version__ = "1.1.0" # script version
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules after import.*")

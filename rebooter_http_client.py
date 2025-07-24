@@ -3,6 +3,7 @@ import ssl
 import http.client
 import ipaddress
 
+HTTP_TIMEOUT = 10  # seconds
 
 def create_ssl_context(rebooter_cert_path=None, pc_cert_path=None, pc_key_path=None, verify=True):
     """
@@ -87,7 +88,7 @@ def post_notify(
         "cert": callback_cert
     })
 
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("POST", "/notify", body=payload, headers={
         "Content-Type": "application/json"
     })
@@ -119,7 +120,7 @@ def get_config(
         verify=not is_ip
     )
 
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("GET", "/config")
 
     resp = conn.getresponse()
@@ -151,7 +152,7 @@ def post_config(
     )
 
     payload = json.dumps(config_dict)
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("POST", "/config", body=payload, headers={"Content-Type": "application/json"})
     
     resp = conn.getresponse()
@@ -181,7 +182,7 @@ def get_info(
         verify=not is_ip
     )
 
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("GET", "/info")
     resp = conn.getresponse()
     raw = resp.read()
@@ -211,7 +212,7 @@ def post_info(
     )
 
     payload = json.dumps({"do_update": True})
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("POST", "/info", body=payload, headers={"Content-Type": "application/json"})
     resp = conn.getresponse()
     raw = resp.read()
@@ -240,7 +241,7 @@ def get_control(
         verify=not is_ip
     )
 
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("GET", "/control")
     resp = conn.getresponse()
     raw = resp.read()
@@ -272,7 +273,7 @@ def post_control(
     )
 
     payload = json.dumps(command_dict)
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("POST", "/control", body=payload, headers={"Content-Type": "application/json"})
     resp = conn.getresponse()
     raw = resp.read()
@@ -301,7 +302,7 @@ def get_schedules(
         verify=not is_ip
     )
 
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("GET", "/schedules")
     response = conn.getresponse()
     raw = response.read()
@@ -339,7 +340,7 @@ def post_schedules(
         "schedules": schedules
     })
     
-    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context)
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
     conn.request("POST", "/schedules", body=body, headers={"Content-Type": "application/json"})
     response = conn.getresponse()
     raw = response.read()

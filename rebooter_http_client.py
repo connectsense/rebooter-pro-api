@@ -47,6 +47,58 @@ def create_ssl_context(rebooter_cert_path=None, pc_cert_path=None, pc_key_path=N
 
     return context
 
+def post_prov(
+    rebooter_host_or_ip="192.168.250.1",
+    rebooter_port=443,
+    ssid="",
+    password="",
+    rebooter_cert_path=None,
+    pc_cert_path=None,
+    pc_key_path=None
+):
+    """
+    Sends Wi-Fi credentials to the Rebooter Pro SoftAP endpoint at /prov.
+
+    :param rebooter_host_or_ip: Target IP or hostname (default: 192.168.250.1)
+    :param rebooter_port: HTTPS port (default: 443)
+    :param ssid: SSID to join
+    :param password: Wi-Fi password
+    :param rebooter_cert_path: Optional CA certificate for validation
+    :param pc_cert_path: Optional client certificate
+    :param pc_key_path: Optional client key
+    :return: (status_code, response body)
+    """
+    import json
+    import http.client
+
+    try:
+        ipaddress.ip_address(rebooter_host_or_ip)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    context = create_ssl_context(
+        rebooter_cert_path=rebooter_cert_path,
+        pc_cert_path=pc_cert_path,
+        pc_key_path=pc_key_path,
+        verify=not is_ip
+    )
+
+    payload = json.dumps({
+        "ssid": ssid,
+        "password": password
+    })
+
+    conn = http.client.HTTPSConnection(rebooter_host_or_ip, rebooter_port, context=context, timeout=HTTP_TIMEOUT)
+    conn.request("POST", "/prov", body=payload, headers={"Content-Type": "application/json"})
+    response = conn.getresponse()
+    raw = response.read()
+
+    if response.status == 200:
+        return response.status, json.loads(raw.decode())
+    else:
+        return response.status, raw.decode()
+
 
 def post_notify(
     rebooter_host_or_ip,

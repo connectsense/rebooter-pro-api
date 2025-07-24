@@ -16,6 +16,7 @@ from rebooter_pro_api.rebooter_gateway import RebooterProAPI, load_config
 from rebooter_pro_api.rebooter_config import parse_config
 from PIL import ImageTk, Image
 import json
+import webbrowser
 
 # === CONFIG ===
 devices = {}
@@ -723,6 +724,85 @@ def outlet_rebooting_action(listbox):
     btn_frame.pack(pady=(0, 10))
     Button(btn_frame, text="OK", width=12, bg="#008fff", fg="white", command=close_all_aux_windows).pack()
     
+def launch_provisioning(api, listbox):
+    from tkinter import simpledialog
+
+    def show_wifi_entry():
+        def on_entry_win_close():
+            if api:
+                api.stop_discovery()
+            listbox.delete(0, END)
+            devices.clear()
+            if api:
+                api.start_discovery()
+            entry_win.destroy()
+            
+        entry_win = Toplevel()
+        entry_win.title("Enter Wi-Fi Credentials")
+        entry_win.geometry("300x300")
+        entry_win.grab_set()
+        entry_win.protocol("WM_DELETE_WINDOW", on_entry_win_close)
+
+        Label(entry_win, text="Wi-Fi SSID:").pack(pady=(10, 2))
+        ssid_entry = Entry(entry_win, width=25)
+        ssid_entry.pack()
+
+        Label(entry_win, text="Wi-Fi Password:").pack(pady=(10, 2))
+        password_entry = Entry(entry_win, width=25, show="*")
+        password_entry.pack()
+
+        def submit():
+            ssid = ssid_entry.get().strip()
+            password = password_entry.get().strip()
+            if not ssid:
+                messagebox.showerror("Missing SSID", "Please enter a Wi-Fi SSID.")
+                return
+
+            client = api.create_client("192.168.250.1", remote_port=443)
+            try:
+                status, resp = client.post_prov(ssid, password)
+                if status == 200:
+                    # Ask the user to reconnect their PC
+                    messagebox.showinfo(
+                        "Provisioning Complete",
+                        "Please reconnect your PC to your regular Wi-Fi network,\nthen click OK to continue."
+                    )
+                else:
+                    messagebox.showerror("Error", f"Provisioning failed: {status}\n{resp}\n\nPlease reconnect your PC to your regular Wi-Fi network,\nthen click OK to continue.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Provisioning error:\n{e}\n\nPlease reconnect your PC to your regular Wi-Fi network,\nthen click OK to continue.")
+            on_entry_win_close()
+
+        Button(entry_win, text="Submit", command=submit, bg="#00c853", fg="white").pack(pady=10)
+
+        # Instructional text
+        instruction_label = Label(entry_win, text="Or open this URL in your browser:", font=("Arial", 10))
+        instruction_label.pack(pady=(15, 2))
+
+        # Clickable link
+        def open_browser_link(event):
+            webbrowser.open("http://192.168.250.1/")
+
+        link_label = Label(entry_win, text="http://192.168.250.1/", fg="blue", cursor="hand2", font=("Arial", 11, "underline"))
+        link_label.pack()
+        link_label.bind("<Button-1>", open_browser_link)
+        
+
+    # First popup for instructions
+    popup = Toplevel()
+    popup.title("Connect to Device")
+    popup.geometry("300x180")
+    popup.grab_set()
+
+    Label(
+        popup, 
+        text="1. Connect your PC to the Rebooter SoftAP.\n(CS-RBTR-XXXXXX)\n"
+             "2. Wait for connection to complete.\n"
+             "3. Click OK to continue.", 
+        justify=LEFT,
+        anchor="w").pack(pady=20, fill='x', padx=10)
+
+    Button(popup, text="OK", command=lambda: (popup.destroy(), show_wifi_entry())).pack()
 
 
 
@@ -748,6 +828,18 @@ def main():
     device_frame = Frame(root)
     device_frame.pack(padx=10, pady=(10, 5), fill=BOTH)
 
+    device_top_frame = Frame(device_frame)
+    device_top_frame.pack(fill=X)
+    
+    Label(device_top_frame, text="Discovered Devices").pack(side=LEFT)
+    
+    Button(
+        device_top_frame,
+        text="Add New Rebooter to Wi-Fi",
+        bg="#ff9800",
+        command=lambda: launch_provisioning(api, listbox)
+    ).pack(side=RIGHT, padx=5)
+    
     listbox = Listbox(device_frame, width=80, height=10)
     listbox.bind("<<ListboxSelect>>", lambda e: on_device_select(e, listbox, [config_button, subscribe_button, info_button, control_button, schedule_button]))
     listbox.configure(exportselection=False)

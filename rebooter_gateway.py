@@ -17,6 +17,17 @@ class RebooterHttpClient:
         self.rebooter_port = rebooter_port
         self.rebooter_cert_path = rebooter_cert_path
 
+    def post_prov(self, ssid, password, pc_cert_path=None, pc_key_path=None):
+        return rebooter_http_client.post_prov(
+            rebooter_host_or_ip=self.rebooter_host_or_ip,
+            rebooter_port=self.rebooter_port,
+            ssid=ssid,
+            password=password,
+            rebooter_cert_path=self.rebooter_cert_path,
+            pc_cert_path=pc_cert_path,
+            pc_key_path=pc_key_path
+        )
+
     def post_notify(self, callback_url, pc_cert_path, pc_key_path, pc_https_port):
         return rebooter_http_client.post_notify(
             rebooter_host_or_ip=self.rebooter_host_or_ip,

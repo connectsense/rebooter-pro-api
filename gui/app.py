@@ -18,6 +18,9 @@ from PIL import ImageTk, Image
 import json
 import webbrowser
 
+import platform
+IS_MACOS = platform.system() == "Darwin"
+
 # === CONFIG ===
 devices = {}
 log_queue = Queue()
@@ -235,7 +238,7 @@ def launch_rebooter_config_window(root_UI_in, listbox, api, server_cert_path, se
     rebooterWindow.title("Rebooter Configuration")
     rebooterWindow.geometry("700x750")
     
-    Button(rebooterWindow, command=lambda: send_rebooter_config(listbox, api, server_cert_path, server_key_path), text="Send Config", bg="#008fff").pack()
+    Button(rebooterWindow, command=lambda: send_rebooter_config(listbox, api, server_cert_path, server_key_path), text="Send Config", **({"bg": "#008fff"} if not IS_MACOS else {})).pack()
     
     top_frame = Frame(rebooterWindow)
     top_frame.pack()
@@ -349,7 +352,7 @@ def open_info_window(listbox, api, pc_cert_path, pc_key_path):
         win.destroy()
 
     if info.get("update_available"):
-        Button(win, text="Update Firmware", command=on_update, bg="#ff9800").pack(pady=(10, 0))
+        Button(win, text="Update Firmware", command=on_update, **({"bg": "#ff9800"} if not IS_MACOS else {})).pack(pady=(10, 0))
 
     Button(win, text="Close", command=win.destroy).pack(pady=10)
 
@@ -426,7 +429,7 @@ def open_control_window(listbox, api, pc_cert_path, pc_key_path):
         except Exception as e:
             messagebox.showerror("Reboot Error", str(e))
 
-    Button(win, text="Reboot Device", bg="#ff4444", command=reboot_outlet).pack(pady=10)
+    Button(win, text="Reboot Device", **({"bg": "#ff4444"} if not IS_MACOS else {}), command=reboot_outlet).pack(pady=10)
     Button(win, text="Close", command=win.destroy).pack(pady=5)
 
 # === Schedules Window ===
@@ -630,7 +633,7 @@ def open_schedule_window(listbox, api, pc_cert_path, pc_key_path):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    Button(win, text="Save", command=save_schedules, bg="#00c853", fg="white").pack(pady=10)
+    Button(win, text="Save", command=save_schedules, **({"bg": "#00c853", "fg": "white"} if not IS_MACOS else {})).pack(pady=10)
     Button(win, text="Cancel", command=win.destroy).pack()
 
     refresh_schedule_fields(
@@ -722,7 +725,7 @@ def outlet_rebooting_action(listbox):
     # Frame for OK button pinned to the bottom
     btn_frame = Frame(info_win)
     btn_frame.pack(pady=(0, 10))
-    Button(btn_frame, text="OK", width=12, bg="#008fff", fg="white", command=close_all_aux_windows).pack()
+    Button(btn_frame, text="OK", width=12, **({"bg": "#008fff", "fg": "white"} if not IS_MACOS else {}), command=close_all_aux_windows).pack()
     
 def launch_provisioning(api, listbox):
     from tkinter import simpledialog
@@ -773,7 +776,7 @@ def launch_provisioning(api, listbox):
                 messagebox.showerror("Error", f"Provisioning error:\n{e}\n\nPlease reconnect your PC to your regular Wi-Fi network,\nthen click OK to continue.")
             on_entry_win_close()
 
-        Button(entry_win, text="Submit", command=submit, bg="#00c853", fg="white").pack(pady=10)
+        Button(entry_win, text="Submit", command=submit, **({"bg": "#00c853", "fg": "white"} if not IS_MACOS else {})).pack(pady=10)
 
         # Instructional text
         instruction_label = Label(entry_win, text="Or open this URL in your browser:", font=("Arial", 10))
@@ -847,7 +850,7 @@ def main():
     Button(
         device_top_frame,
         text="Add New Rebooter to Wi-Fi",
-        bg="#ff9800",
+        **({"bg": "#ff9800"} if not IS_MACOS else {}),
         command=lambda: launch_provisioning(api, listbox)
     ).pack(side=RIGHT, padx=5)
     

@@ -132,6 +132,8 @@ To build a `.exe`, run the following from a Windows environment:
 ```cmd
 python -m PyInstaller --onefile --noconsole ^
   --hidden-import=ipaddress ^
+  --hidden-import=PIL.Image ^
+  --hidden-import=PIL.ImageTk ^
   --hidden-import=PIL._tkinter_finder ^
   --add-data "rebooter_pro_api/gui/config.json;." ^
   --add-data "rebooter_pro_api/gui/certs/server-cert.pem;certs" ^
